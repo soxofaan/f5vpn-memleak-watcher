@@ -21,16 +21,24 @@ def get_total_memory_usage() -> int:
     Return total RSS (bytes) of all /opt/f5/vpn/libexec/QtWebEngineProcess processes
     """
     usage = 0
-    ps_dump = subprocess.check_output(
+    ps_dump = subprocess.run(
         ["ps", "-C", "QtWebEngineProcess", "-o", "pid=,rss=,args="],
         text=True,
         encoding="utf-8",
+        capture_output=True,
     )
-    for match in re.finditer(r"^\s*(\d+)\s+(\d+)\s+(.*)$", ps_dump, re.MULTILINE):
-        pid, rss_kb, cmdline = match.group(1, 2, 3)
-        _log.debug(f"ps dump: {pid=}, {rss_kb=}, {cmdline[:100]=}")
-        if "/opt/f5/vpn/libexec/QtWebEngineProcess" in cmdline:
-            usage += int(rss_kb) * 1024
+    if ps_dump.returncode == 0:
+        for match in re.finditer(
+            r"^\s*(\d+)\s+(\d+)\s+(.*)$", ps_dump.stdout, re.MULTILINE
+        ):
+            pid, rss_kb, cmdline = match.group(1, 2, 3)
+            _log.debug(f"ps dump: {pid=}, {rss_kb=}, {cmdline[:100]=}")
+            if "/opt/f5/vpn/libexec/QtWebEngineProcess" in cmdline:
+                usage += int(rss_kb) * 1024
+    else:
+        _log.warning(
+            "ps found no QtWebEngineProcess. Is it running or is something else wrong?"
+        )
 
     return usage
 
